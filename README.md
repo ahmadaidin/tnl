@@ -25,8 +25,18 @@ Inspired by [tunn](https://github.com/strandnerd/tunn): same architecture (confi
 
 ## Install
 
+For an installed binary, use the Go toolchain:
+
 ```sh
-# build into ./bin (also: task build)
+go install github.com/ahmadaidin/tnl/cmd/tnl@latest
+```
+
+The binary is placed in `$(go env GOBIN)`, or `$(go env GOPATH)/bin` when
+`GOBIN` is unset. Ensure that directory is on your `PATH`.
+
+For a local checkout, build into `./bin` instead (also: `task build`):
+
+```sh
 go build -o bin/tnl ./cmd/tnl
 # optional: pin a version string
 go build -ldflags "-X github.com/ahmadaidin/tnl/internal/version.Version=v0.1.0" -o bin/tnl ./cmd/tnl
