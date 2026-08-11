@@ -1,6 +1,6 @@
 // Command tnl is a daemon-based SSH tunnel manager.
 //
-// It reads a YAML config (default ~/.tnlrc), spawns the system ssh binary
+// It reads a YAML config (default ~/.tnlrc.yaml), spawns the system ssh binary
 // for each port mapping, and supervises the mappings: restarting dead ones
 // with exponential backoff, reporting port collisions, and supporting
 // per-tunnel lifecycle control through a Unix-socket IPC daemon.
@@ -30,7 +30,7 @@ import (
 )
 
 // defaultConfigPath is used when no -c/--config flag is given.
-const defaultConfigPath = "~/.tnlrc"
+const defaultConfigPath = "~/.tnlrc.yaml"
 
 // socketPollInterval is how often the stop command polls for daemon exit.
 const socketPollInterval = 50 * time.Millisecond

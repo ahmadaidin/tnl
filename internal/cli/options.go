@@ -58,7 +58,7 @@ Commands:
 
 Options:
   -d, --detach           run as a background daemon
-  -c, --config <path>    config file (default ~/.tnlrc)
+  -c, --config <path>    config file (default ~/.tnlrc.yaml)
   -h, --help             show this help
 `
 

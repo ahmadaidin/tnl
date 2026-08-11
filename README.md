@@ -6,7 +6,7 @@ Inspired by [tunn](https://github.com/strandnerd/tunn): same architecture (confi
 
 ## Features
 
-- **YAML config** (`~/.tnlrc`): tunnels with multiple port mappings, optional display labels
+- **YAML config** (`~/.tnlrc.yaml`): tunnels with multiple port mappings, optional display labels
 - **Native ssh**: spawns the system `ssh`, so keys, agents, and `~/.ssh/config` behave exactly like your shell
 - **Parallel execution**: every mapping runs concurrently
 - **Supervision**: dead mappings restart with exponential backoff (1s → 60s cap, jittered); attempt counts surface in status
@@ -44,7 +44,7 @@ go build -ldflags "-X github.com/ahmadaidin/tnl/internal/version.Version=v0.1.0"
 
 ## Configuration
 
-Create `~/.tnlrc` (or pass any path with `-c`):
+Create `~/.tnlrc.yaml` (or pass any path with `-c`):
 
 ```yaml
 tunnels:
@@ -106,7 +106,7 @@ Commands:
 
 Options:
   -d, --detach           run as a background daemon
-  -c, --config <path>    config file (default ~/.tnlrc)
+  -c, --config <path>    config file (default ~/.tnlrc.yaml)
   -h, --help             show this help
 ```
 
@@ -179,7 +179,7 @@ Packages:
 
 | Package | Role |
 |---|---|
-| `internal/config` | parse/validate `~/.tnlrc` |
+| `internal/config` | parse/validate `~/.tnlrc.yaml` |
 | `internal/status` | thread-safe mapping-state store |
 | `internal/supervisor` | supervision loops, backoff, spawn, probes |
 | `internal/daemon` | unix-socket IPC, pid/socket/log lifecycle |
