@@ -1,0 +1,117 @@
+# Taskfile for tnl (https://taskfile.dev)
+#
+#   task                build the binary
+#   task check          vet + test + build
+#   task smoke          end-to-end run against a fake ssh shim
+#
+
+version: "3"
+
+vars:
+  BIN_DIR: bin
+  BIN: "{{.BIN_DIR}}/tnl"
+  VERSION: dev
+  PKG_VERSION: github.com/ahmadaidin/tnl/internal/version
+
+tasks:
+  default:
+    desc: Build the tnl binary
+    cmds:
+      - task: build
+
+  run:
+    desc: "Run the built binary; pass args after -- (e.g. task run -- -d -c .tnlrc.yaml)"
+    deps:
+      - build
+    cmds:
+      - "./{{.BIN}} {{.CLI_ARGS}}"
+
+  build:
+    desc: "Compile the tnl binary into ./bin (override VERSION: task build VERSION=v0.1.0)"
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -ldflags "-X {{.PKG_VERSION}}.Version={{.VERSION}}" -o {{.BIN}} ./cmd/tnl
+    sources:
+      - cmd/**
+      - internal/**
+    generates:
+      - "{{.BIN}}"
+
+  install:
+    desc: Install tnl into GOPATH/bin
+    cmds:
+      - go install -ldflags "-X {{.PKG_VERSION}}.Version={{.VERSION}}" ./cmd/tnl
+
+  test:
+    desc: Run the full test suite
+    cmds:
+      - go test ./...
+    sources:
+      - cmd/**
+      - internal/**
+
+  race:
+    desc: Run supervisor tests with the race detector
+    cmds:
+      - go test -race ./internal/supervisor/
+    sources:
+      - internal/supervisor/**
+      - internal/status/**
+      - internal/config/**
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+    sources:
+      - cmd/**
+      - internal/**
+
+  check:
+    desc: Vet, test, then build
+    deps:
+      - vet
+      - test
+    cmds:
+      - task: build
+
+  clean:
+    desc: Remove the built binary
+    cmds:
+      - rm -f {{.BIN}}
+
+  smoke:
+    desc: End-to-end smoke test with a fake ssh shim (no real sshd or network)
+    deps:
+      - build
+    cmds:
+      - |
+        dir=$(mktemp -d)
+        trap 'rm -rf "$dir"; pkill -f "fakebin/ssh" 2>/dev/null; true' EXIT
+        mkdir -p "$dir/fakebin" "$dir/run"
+        # The shim's log path is baked in at write time (unquoted heredoc) so
+        # the assertion never depends on env propagation through the daemon.
+        cat > "$dir/fakebin/ssh" <<EOF
+        #!/bin/sh
+        echo "\$@" >> $dir/ssh.log
+        trap 'exit 0' INT TERM
+        exec sleep 3600
+        EOF
+        chmod +x "$dir/fakebin/ssh"
+        cat > "$dir/tnlrc.yml" <<EOF
+        tunnels:
+          api:
+            host: example.com
+            ports:
+              - web: 31000:80
+        EOF
+        export XDG_RUNTIME_DIR="$dir/run"
+        export PATH="$dir/fakebin:$PATH"
+        ./{{.BIN}} --detach -c "$dir/tnlrc.yml"
+        # --detach returns once the socket is up; the supervisor spawns the
+        # shim a beat later, so give it a moment before asserting.
+        sleep 1
+        ./{{.BIN}} status | grep -q "web \[connecting\]" && echo "status OK"
+        grep -q -- "-L 31000:localhost:80" "$dir/ssh.log" && echo "argv OK"
+        ./{{.BIN}} stop
+        pgrep -f fakebin/ssh >/dev/null && { echo "leftover ssh processes"; exit 1; } || echo "no leftovers"

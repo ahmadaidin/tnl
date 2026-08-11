@@ -1,0 +1,42 @@
+# Example tnl configuration. Copy to ~/.tnlrc and adjust.
+#
+# Each tunnel needs a host (an ssh alias from ~/.ssh/config) and at least one
+# port mapping. A mapping is a "local:remote" spec, optionally labeled as
+# "label: local:remote" to name the app on that port in status output.
+
+tunnels:
+  # API server: one labeled mapping plus one unlabeled.
+  api:
+    host: myserver                  # ssh host alias from ~/.ssh/config
+    reclaim: true                   # kill the occupant of a colliding local port (same-user only)
+    ports:
+      - web: 3000:3000              # labeled: "web" is the app on port 3000
+      - 4000:4001                   # plain local:remote spec
+    user: apiuser                   # optional, overrides ~/.ssh/config
+    identity_file: ~/.ssh/id_rsa    # optional, env-expanded
+
+  # Database: labeled mappings, one forwarding through the ssh host.
+  db:
+    host: db.mydomain.com
+    ports:
+      - mysql: 3306:3306
+      - postgres: 5432:5432
+      - suteki.tech: 3329:db.suteki.tech:3306   # local:desthost:remote — db.suteki.tech resolves from the ssh host's side
+
+  # Cache: declared but not started by default (enabled: false).
+  cache:
+    host: cacheserver
+    ports:
+      - 6379:6379
+    enabled: false
+
+  # Single-mapping tunnel.
+  metrics:
+    host: prom
+    ports:
+      - 9090:9090
+
+# Notes:
+# - Local ports must be unique across all tunnels; a clash is rejected at load.
+# - Ports must be in 1-65535; unknown fields are rejected (strict parsing).
+# - tnl start <name> starts a tunnel even when enabled: false.
