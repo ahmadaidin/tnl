@@ -26,7 +26,11 @@ func Install(binPath string) error {
 	if err := os.WriteFile(path, content, 0o644); err != nil {
 		return fmt.Errorf("write launchd plist: %w", err)
 	}
-	cmd := runCmd("launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), path)
+	domain := fmt.Sprintf("gui/%d", os.Getuid())
+	// Reinstalling must replace an already-loaded LaunchAgent. bootout is
+	// intentionally best-effort because the first install has nothing to unload.
+	_ = runCmd("launchctl", "bootout", domain+"/"+label).Run()
+	cmd := runCmd("launchctl", "bootstrap", domain, path)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("launchctl bootstrap: %w: %s", err, strings.TrimSpace(string(out)))
 	}

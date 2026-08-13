@@ -101,12 +101,16 @@ func TestInstallWritesPlistAndBootstraps(t *testing.T) {
 	}
 	assertPlistContent(t, string(content), binPath)
 
-	want := []string{"launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), path}
-	if len(calls) != 1 {
-		t.Fatalf("launchctl invoked %d times, want 1: %v", len(calls), calls)
+	wantBootout := []string{"launchctl", "bootout", fmt.Sprintf("gui/%d/%s", os.Getuid(), label)}
+	wantBootstrap := []string{"launchctl", "bootstrap", fmt.Sprintf("gui/%d", os.Getuid()), path}
+	if len(calls) != 2 {
+		t.Fatalf("launchctl invoked %d times, want 2: %v", len(calls), calls)
 	}
-	if !equalArgs(calls[0], want) {
-		t.Errorf("launchctl invocation = %q, want %q", calls[0], want)
+	if !equalArgs(calls[0], wantBootout) {
+		t.Errorf("launchctl bootout invocation = %q, want %q", calls[0], wantBootout)
+	}
+	if !equalArgs(calls[1], wantBootstrap) {
+		t.Errorf("launchctl bootstrap invocation = %q, want %q", calls[1], wantBootstrap)
 	}
 }
 
