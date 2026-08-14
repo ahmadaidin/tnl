@@ -157,7 +157,7 @@ func TestSpawnArgvExact(t *testing.T) {
 		return spawnCount(t, logPath) >= 1
 	})
 	want := fmt.Sprintf(
-		"-N -L 3000:localhost:3000 -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -i %s -l alice example.com",
+		"-N -L 3000:localhost:3000 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o ExitOnForwardFailure=yes -i %s -l alice example.com",
 		os.ExpandEnv("$HOME/.ssh/id_ed25519"),
 	)
 	got := readLines(t, logPath)[0]

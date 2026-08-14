@@ -144,7 +144,7 @@ Status output (from a live run):
 The spawned ssh command is (with `local:desthost:remote` mappings, `localhost` is replaced by the destination host):
 
 ```
-ssh -N -L <local>:localhost:<remote> -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes [-i <identity>] [-l <user>] <host>
+ssh -N -L <local>:localhost:<remote> -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o ExitOnForwardFailure=yes [-i <identity>] [-l <user>] <host>
 ```
 
 ## Runtime files

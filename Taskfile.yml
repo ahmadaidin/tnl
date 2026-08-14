@@ -86,6 +86,7 @@ tasks:
       - build
     cmds:
       - |
+        set -e
         dir=$(mktemp -d)
         trap 'rm -rf "$dir"; pkill -f "fakebin/ssh" 2>/dev/null; true' EXIT
         mkdir -p "$dir/fakebin" "$dir/run"
@@ -111,7 +112,9 @@ tasks:
         # --detach returns once the socket is up; the supervisor spawns the
         # shim a beat later, so give it a moment before asserting.
         sleep 1
-        ./{{.BIN}} status | grep -q "web \[connecting\]" && echo "status OK"
-        grep -q -- "-L 31000:localhost:80" "$dir/ssh.log" && echo "argv OK"
+        ./{{.BIN}} status > "$dir/status.txt"
+        grep -q "connecting" "$dir/status.txt" && echo "status OK"
+        grep -q -- "-L 31000:localhost:80" "$dir/ssh.log"
+        grep -q -- "-o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o ExitOnForwardFailure=yes" "$dir/ssh.log" && echo "argv OK"
         ./{{.BIN}} stop
         pgrep -f fakebin/ssh >/dev/null && { echo "leftover ssh processes"; exit 1; } || echo "no leftovers"

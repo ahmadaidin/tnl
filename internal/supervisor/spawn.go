@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	keepaliveInterval = "30"
-	keepaliveCountMax = "3"
+	keepaliveInterval = "5"
+	keepaliveCountMax = "2"
 )
 
 // spawnArgs builds the ssh argv for a mapping: keepalive options, then the

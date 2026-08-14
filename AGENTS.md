@@ -11,7 +11,7 @@ tnl is a daemon-based SSH tunnel manager: YAML config → one system `ssh` proce
 ## Non-negotiables
 
 - **No new external dependencies.** The only module dependency is `gopkg.in/yaml.v3` (used by `internal/config`). Everything else is stdlib. Think hard before touching go.mod.
-- **Spawn the system `ssh`, never a Go SSH library.** Keepalive flags on the spawn argv (`-o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes`) are the connection-death detection; do not remove them.
+- **Spawn the system `ssh`, never a Go SSH library.** Keepalive flags on the spawn argv (`-o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o ExitOnForwardFailure=yes`) are the connection-death detection; do not remove them.
 - **Only Wanted mappings restart.** Wanted = enabled (or explicitly named) and not manually stopped. A stopped tunnel stays stopped; never auto-restart it.
 - **Explicit names override `enabled: false`** — `tnl start pg_dev` and `tnl -d pg_dev` start a disabled tunnel; the flag only filters bare "all" operations.
 - **Graceful kill contract**: children get SIGINT, 2s grace, then SIGKILL. `Manager.Run` must not return until every child is dead, and `runInternalDaemon` in `cmd/tnl/main.go` must wait for BOTH the manager and the IPC server before exiting — exiting early orphans ssh processes (regression-tested by smoke, not unit tests).
@@ -40,3 +40,8 @@ Keep the verbs stable: `tnl [names]` (foreground), `-d/--detach`, `status`, `sta
 ## Shutdown flow (the subtle part)
 
 `tnl stop` → IPC `shutdown` → daemon cancels ctx → `Manager.Run` cancels every mapping loop and blocks on each loop's `done` (kill grace bounds this) → `runInternalDaemon`'s WaitGroup ensures both manager and server finished → `defer daemon.Cleanup`. The client polls for socket removal up to 5s. Dial errors that wrap `os.ErrNotExist` are mapped to "tnl daemon is not running" in `cmd/tnl/main.go`'s `sendCommand` — keep that mapping when touching command handlers.
+
+## Git commits
+
+- Use [Conventional Commits](https://www.conventionalcommits.org/) for every commit, with a type and concise imperative subject (for example, `fix(supervisor): prevent unwanted tunnel restarts`).
+- Include a descriptive message body after a blank line. Explain the motivation, important implementation details, and user-visible or operational impact; do not leave the body empty for non-trivial changes.
