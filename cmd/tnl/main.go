@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -66,7 +67,7 @@ func run() error {
 		}
 		return runForeground(opts, cfgPath)
 	case cli.CommandStatus:
-		return runStatus()
+		return runStatus(opts.Watch)
 	case cli.CommandStartTunnel:
 		return runStartTunnel(opts, cfgPath)
 	case cli.CommandStopDaemon:
@@ -143,25 +144,80 @@ func runForeground(opts *cli.Options, cfgPath string) error {
 	return <-done
 }
 
+// statusQuery retrieves one daemon status response.
+type statusQuery func(context.Context) (*daemon.Response, error)
+
+// renderStatus queries and renders one-shot or periodically refreshed status.
+func renderStatus(ctx context.Context, watch bool, w io.Writer, query statusQuery, ticks <-chan time.Time) error {
+	render := func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		resp, err := query(ctx)
+		if err != nil {
+			return err
+		}
+		if resp.Error != "" {
+			return errors.New(resp.Error)
+		}
+		if watch {
+			if _, err := io.WriteString(w, "\x1b[H\x1b[2J"); err != nil {
+				return err
+			}
+		}
+		if resp.Message != "" {
+			_, err = fmt.Fprintln(w, resp.Message)
+			return err
+		}
+		output.Render(resp.Tunnels, w)
+		return nil
+	}
+
+	if !watch {
+		return render()
+	}
+	if err := render(); err != nil {
+		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+			return nil
+		}
+		return err
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticks:
+			if err := render(); err != nil {
+				if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+					return nil
+				}
+				return err
+			}
+		}
+	}
+}
+
 // runStatus queries the daemon and renders the snapshot.
-func runStatus() error {
+func runStatus(watch bool) error {
 	paths, err := daemon.ResolvePaths()
 	if err != nil {
 		return err
 	}
-	resp, err := daemon.QueryStatus(context.Background(), paths)
-	if err != nil {
-		return errors.New("tnl daemon is not running")
+	query := func(ctx context.Context) (*daemon.Response, error) {
+		resp, err := daemon.QueryStatus(ctx, paths)
+		if err != nil {
+			return nil, errors.New("tnl daemon is not running")
+		}
+		return resp, nil
 	}
-	if resp.Error != "" {
-		return errors.New(resp.Error)
+	if !watch {
+		return renderStatus(context.Background(), false, os.Stdout, query, nil)
 	}
-	if resp.Message != "" {
-		fmt.Println(resp.Message)
-		return nil
-	}
-	output.Render(resp.Tunnels, os.Stdout)
-	return nil
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	return renderStatus(ctx, true, os.Stdout, query, ticker.C)
 }
 
 // sendCommand forwards a command to the daemon, mapping a missing-socket dial

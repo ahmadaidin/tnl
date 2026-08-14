@@ -48,6 +48,7 @@ Commands:
   tnl [names]            start tunnels in the foreground
   tnl -d [names]         start tunnels in a background daemon
   tnl status             show daemon and tunnel status
+  tnl status -w, --watch continuously refresh daemon and tunnel status
   tnl start [names]      start tunnels through the daemon
   tnl stop               stop the daemon
   tnl stop <name>        stop a single tunnel
@@ -58,6 +59,7 @@ Commands:
 
 Options:
   -d, --detach           run as a background daemon
+  -w, --watch            refresh status every second
   -c, --config <path>    config file (default ~/.tnlrc.yaml)
   -h, --help             show this help
 `
@@ -66,6 +68,7 @@ Options:
 type Options struct {
 	Command        Command
 	Detach         bool
+	Watch          bool
 	InternalDaemon bool
 	ConfigPath     string
 	Names          []string
@@ -91,6 +94,8 @@ func Parse(args []string) (*Options, error) {
 				return nil, ErrHelp
 			case a == "-d" || a == "--detach":
 				opts.Detach = true
+			case a == "-w" || a == "--watch":
+				opts.Watch = true
 			case a == "-c" || a == "--config":
 				i++
 				if i >= len(args) {
@@ -157,6 +162,9 @@ func Parse(args []string) (*Options, error) {
 // checkConflicts rejects flag/verb combinations that make no sense, in the
 // tunn style.
 func checkConflicts(opts *Options, verb string) error {
+	if opts.Watch && opts.Command != CommandStatus {
+		return fmt.Errorf("--watch can only be used with status")
+	}
 	if opts.Detach && opts.Command != CommandStart {
 		return fmt.Errorf("%s command cannot be used with --detach", verb)
 	}

@@ -19,6 +19,9 @@ func TestParse(t *testing.T) {
 		{name: "detach names", args: []string{"-d", "web"}, want: &Options{Command: CommandStart, Detach: true, Names: []string{"web"}}},
 		{name: "names before detach", args: []string{"web", "--detach"}, want: &Options{Command: CommandStart, Detach: true, Names: []string{"web"}}},
 		{name: "status", args: []string{"status"}, want: &Options{Command: CommandStatus}},
+		{name: "status watch long", args: []string{"status", "--watch"}, want: &Options{Command: CommandStatus, Watch: true}},
+		{name: "watch before status", args: []string{"--watch", "status"}, want: &Options{Command: CommandStatus, Watch: true}},
+		{name: "status watch short", args: []string{"status", "-w"}, want: &Options{Command: CommandStatus, Watch: true}},
 		{name: "start", args: []string{"start"}, want: &Options{Command: CommandStartTunnel}},
 		{name: "start names", args: []string{"start", "web", "db"}, want: &Options{Command: CommandStartTunnel, Names: []string{"web", "db"}}},
 		{name: "stop", args: []string{"stop"}, want: &Options{Command: CommandStopDaemon}},
@@ -55,6 +58,9 @@ func TestParseErrors(t *testing.T) {
 		want string
 	}{
 		{name: "unknown flag", args: []string{"--bogus"}, want: "unknown flag: --bogus"},
+		{name: "watch without status", args: []string{"--watch"}, want: "--watch can only be used with status"},
+		{name: "start with watch", args: []string{"start", "--watch"}, want: "--watch can only be used with status"},
+		{name: "status watch with name", args: []string{"status", "--watch", "web"}, want: "status command does not accept tunnel names"},
 		{name: "unknown short flag", args: []string{"-x"}, want: "unknown flag: -x"},
 		{name: "flag needs argument", args: []string{"-c"}, want: "flag needs an argument: -c"},
 		{name: "config long missing arg", args: []string{"--config"}, want: "flag needs an argument: --config"},
