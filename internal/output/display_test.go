@@ -28,12 +28,12 @@ func TestRender(t *testing.T) {
 		},
 	}
 	want := "" +
-		"\x1b[32m[web] primary [active]\x1b[0m\n" +
+		"\x1b[32m[web] primary 3000:3000 [active]\x1b[0m\n" +
 		"\x1b[33m[web] 3001:3001 [connecting]\x1b[0m\n" +
 		"\x1b[33m[web] 3002:3002 [backing off] (attempt 3)\x1b[0m\n" +
 		"\x1b[31m[web] 3003:3003 [error] - port 3003 in use\x1b[0m\n" +
 		"\x1b[90m[web] 3004:3004 [stopped]\x1b[0m\n" +
-		"\x1b[32m[db] postgres [active]\x1b[0m\n" +
+		"\x1b[32m[db] postgres 5432:5432 [active]\x1b[0m\n" +
 		"\x1b[32m[db] 3329:db.suteki.tech:3306 [active]\x1b[0m\n"
 
 	var buf bytes.Buffer

@@ -18,7 +18,7 @@ const (
 
 // Render writes one colored line per tunnel mapping to w:
 //
-//	[<tunnel>] <label or "local:remote"> [<state>]
+//	[<tunnel>] <label and spec, or "local:remote"> [<state>]
 //
 // with a " (attempt N)" suffix while backing off and a " - <message>" suffix
 // for error states. Active lines are green, connecting and backing-off lines
@@ -37,9 +37,14 @@ func Render(snapshot []status.TunnelStatus, w io.Writer) {
 // or local:desthost:remote when forwarding through the ssh host) when the
 // label is unset.
 func labelOrSpec(m status.MappingStatus) string {
+	spec := mappingSpec(m)
 	if m.Label != "" {
-		return m.Label
+		return fmt.Sprintf("%s %s", m.Label, spec)
 	}
+	return spec
+}
+
+func mappingSpec(m status.MappingStatus) string {
 	if m.RemoteHost != "" {
 		return fmt.Sprintf("%d:%s:%d", m.Local, m.RemoteHost, m.Remote)
 	}
