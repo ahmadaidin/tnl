@@ -53,8 +53,8 @@ func equalArgs(got, want []string) bool {
 }
 
 // assertPlistContent verifies the required plist keys and values: Label,
-// ProgramArguments containing binPath then --detach, RunAtLoad true, and
-// KeepAlive false.
+// ProgramArguments containing binPath then --internal-daemon, RunAtLoad true,
+// and KeepAlive false.
 func assertPlistContent(t *testing.T, content, binPath string) {
 	t.Helper()
 	for _, want := range []string{
@@ -71,15 +71,15 @@ func assertPlistContent(t *testing.T, content, binPath string) {
 		}
 	}
 	binIdx := strings.Index(content, "<string>"+binPath+"</string>")
-	detachIdx := strings.Index(content, "<string>--detach</string>")
+	daemonIdx := strings.Index(content, "<string>--internal-daemon</string>")
 	if binIdx < 0 {
 		t.Errorf("plist missing ProgramArguments entry for %q", binPath)
 	}
-	if detachIdx < 0 {
-		t.Errorf("plist missing ProgramArguments entry for --detach")
+	if daemonIdx < 0 {
+		t.Errorf("plist missing ProgramArguments entry for --internal-daemon")
 	}
-	if binIdx >= 0 && detachIdx >= 0 && binIdx > detachIdx {
-		t.Errorf("plist ProgramArguments order: binary must precede --detach")
+	if binIdx >= 0 && daemonIdx >= 0 && binIdx > daemonIdx {
+		t.Errorf("plist ProgramArguments order: binary must precede --internal-daemon")
 	}
 }
 

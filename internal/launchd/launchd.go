@@ -38,7 +38,7 @@ type plistData struct {
 }
 
 // plistTemplate renders the LaunchAgent plist: Label, ProgramArguments
-// (daemon binary plus --detach), RunAtLoad true, KeepAlive false.
+// (daemon binary plus --internal-daemon), RunAtLoad true, KeepAlive false.
 var plistTemplate = template.Must(template.New("plist").Parse(
 	`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -49,7 +49,7 @@ var plistTemplate = template.Must(template.New("plist").Parse(
 	<key>ProgramArguments</key>
 	<array>
 		<string>{{ .BinPath }}</string>
-		<string>--detach</string>
+		<string>--internal-daemon</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
