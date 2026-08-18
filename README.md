@@ -25,6 +25,22 @@ Inspired by [tunn](https://github.com/strandnerd/tunn): same architecture (confi
 
 ## Install
 
+Prebuilt binaries are published for macOS and Linux on `amd64`/`arm64` with
+every [release](https://github.com/ahmadaidin/tnl/releases), signed with SLSA
+provenance. Install the latest release with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ahmadaidin/tnl/main/scripts/install.sh | sh
+# pinned version:
+TNL_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/ahmadaidin/tnl/main/scripts/install.sh | sh
+```
+
+The script installs `tnl` into `./bin`; pass a directory to change that, e.g.
+`sh scripts/install.sh ~/.local/bin` (or run `./scripts/install.sh` from a
+checkout). It detects the OS/arch, downloads
+`https://github.com/ahmadaidin/tnl/releases/latest/download/tnl-<os>-<arch>`
+and verifies the binary with `tnl version`.
+
 For an installed binary, use the Go toolchain:
 
 ```sh
