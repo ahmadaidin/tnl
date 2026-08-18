@@ -1,9 +1,10 @@
 # SLSA provenance for tnl release builds.
 #
-# Push a v* tag to publish tnl-linux-amd64 and its signed
-# tnl-linux-amd64.intoto.jsonl provenance to the matching GitHub release.
-# workflow_dispatch builds the binary and provenance without touching any
-# release (upload-assets: false).
+# A v* tag follows: test -> SLSA builder matrix -> publish. The release job
+# publishes four native binaries and their signed intoto.jsonl provenance:
+#   tnl-linux-amd64, tnl-linux-arm64, tnl-darwin-amd64, tnl-darwin-arm64
+# workflow_dispatch runs the tests and builds all four artifacts, but skips
+# release publication.
 #
 # Repository requirement: Actions must be allowed to mint OIDC tokens, and
 # the id-token: write / contents: write / actions: read permissions below must
@@ -19,13 +20,31 @@ on:
 permissions: read-all
 
 jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run unit tests
+        run: go test -v ./...
+
   release-metadata:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.metadata.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Compute release version
@@ -38,15 +57,44 @@ jobs:
           fi
 
   build:
-    needs: release-metadata
+    needs: [test, release-metadata]
     permissions:
       id-token: write
-      contents: write
+      contents: read
       actions: read
+    strategy:
+      matrix:
+        include:
+          - config: .slsa-goreleaser/linux-amd64.yml
+          - config: .slsa-goreleaser/linux-arm64.yml
+          - config: .slsa-goreleaser/darwin-amd64.yml
+          - config: .slsa-goreleaser/darwin-arm64.yml
     uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     with:
       go-version-file: go.mod
-      config-file: .slsa-goreleaser.yml
+      config-file: ${{ matrix.config }}
       evaluated-envs: "VERSION:${{ needs.release-metadata.outputs.version }}"
-      upload-assets: ${{ startsWith(github.ref, 'refs/tags/v') }}
-      upload-tag-name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+      upload-assets: false
+
+  publish:
+    name: publish release assets
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download SLSA build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: tnl-*
+          path: dist
+          merge-multiple: true
+      - name: Publish release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/**
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
