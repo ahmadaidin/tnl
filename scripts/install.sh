@@ -34,6 +34,21 @@ case "${1:-}" in
   -h | --help) usage ;;
 esac
 
+# Fail early with an actionable message instead of a cryptic install(1) error.
+if [[ ! -d "$DEST" ]]; then
+  if ! mkdir -p "$DEST" 2>/dev/null; then
+    echo "error: cannot create ${DEST} (permission denied)." >&2
+    echo "  Run with sudo, or pick a user-writable directory, e.g.:" >&2
+    echo "    bash <(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh) -s -- ~/.local/bin" >&2
+    exit 1
+  fi
+elif [[ ! -w "$DEST" ]]; then
+  echo "error: ${DEST} is not writable (permission denied)." >&2
+  echo "  Run with sudo, or pick a user-writable directory, e.g.:" >&2
+  echo "    bash <(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh) -s -- ~/.local/bin" >&2
+  exit 1
+fi
+
 # Map the runtime to the release asset suffix.
 case "$(uname -s)" in
   Darwin) os="darwin" ;;
