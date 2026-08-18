@@ -206,6 +206,10 @@ A `Taskfile.yml` wraps the common flows: `task check` (vet + test + build), `tas
 
 Unit and integration tests never require a real sshd: they use an executable fake-ssh shim (`internal/testutil/fakessh.sh`, env-driven via `FAKE_SSH_LOG`/`FAKE_SSH_EXIT_IMMEDIATE`) and an injectable port prober. A manual smoke run looks like `XDG_RUNTIME_DIR=$(mktemp -d) PATH=<fakebin>:$PATH bin/tnl -d -c <config>` with a fake `ssh` on PATH.
 
+### Code scanning
+
+`.github/workflows/codeql.yml` runs CodeQL analysis for Go on pushes and pull requests targeting `main`. It requires the workflow permission `security-events: write` so GitHub can publish the analysis results used by the protected branch checks.
+
 ### Linting
 
 `.github/workflows/ci.yaml` builds, tests, and runs `golangci-lint` v2.12.2 on pushes to `main` and pull requests targeting `main`. Locally, run:
