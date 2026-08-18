@@ -26,6 +26,7 @@ import (
 	"github.com/ahmadaidin/tnl/internal/daemon"
 	"github.com/ahmadaidin/tnl/internal/launchd"
 	"github.com/ahmadaidin/tnl/internal/output"
+	"github.com/ahmadaidin/tnl/internal/sshsetup"
 	"github.com/ahmadaidin/tnl/internal/supervisor"
 	"github.com/ahmadaidin/tnl/internal/version"
 )
@@ -76,6 +77,8 @@ func run() error {
 		return runStopTunnel(opts)
 	case cli.CommandRestartTunnel:
 		return runRestartTunnel(opts)
+	case cli.CommandSetup:
+		return runSetup(opts, cfgPath)
 	case cli.CommandInstall:
 		exe, err := os.Executable()
 		if err != nil {
@@ -362,6 +365,69 @@ func runRestartTunnel(opts *cli.Options) error {
 		msg = "restarted"
 	}
 	fmt.Printf("tnl tunnel %s %s\n", n, msg)
+	return nil
+}
+
+// runSetup provisions ssh identities for tunnels. With no names, all tunnels
+// in the config are provisioned, enabled or not.
+func runSetup(opts *cli.Options, cfgPath string) error {
+	paths, err := daemon.ResolvePaths()
+	if err != nil {
+		return err
+	}
+	if _, running, err := daemon.CheckRunning(paths); err != nil {
+		return err
+	} else if running {
+		return errors.New("tnl daemon is running; run 'tnl stop' before 'tnl setup'")
+	}
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		return err
+	}
+	var names []string
+	switch {
+	case len(opts.Names) == 1:
+		name := opts.Names[0]
+		if cfg.Tunnels[name] == nil {
+			return fmt.Errorf("unknown tunnel %q", name)
+		}
+		names = []string{name}
+	case len(opts.Names) == 0:
+		names = cfg.SortedNames()
+	default:
+		return errors.New("tnl setup accepts at most one tunnel name")
+	}
+	provisioner := &sshsetup.Provisioner{}
+	setupOpts := sshsetup.Options{
+		Algorithm:      opts.SetupAlgorithm,
+		Filename:       opts.SetupFilename,
+		PassphraseFile: opts.SetupPassphraseFile,
+		Yes:            opts.Yes,
+	}
+	failed := false
+	for _, name := range names {
+		r := provisioner.Provision(context.Background(), cfg.Tunnels[name], setupOpts)
+		switch {
+		case r.Err != nil:
+			fmt.Fprintf(os.Stderr, "tnl %s: %v\n", name, r.Err)
+			failed = true
+		case r.Skipped:
+			if r.User == "" {
+				fmt.Printf("tnl %s already provisioned\n", r.Host)
+			} else {
+				fmt.Printf("tnl %s@%s already provisioned\n", r.User, r.Host)
+			}
+		default:
+			if r.User == "" {
+				fmt.Printf("tnl %s provisioned (key %s)\n", r.Host, r.KeyPath)
+			} else {
+				fmt.Printf("tnl %s@%s provisioned (key %s)\n", r.User, r.Host, r.KeyPath)
+			}
+		}
+	}
+	if failed {
+		return errors.New("tnl setup failed for one or more tunnels")
+	}
 	return nil
 }
 

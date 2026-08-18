@@ -33,6 +33,8 @@ const (
 	CommandUninstall
 	// CommandVersion prints the version.
 	CommandVersion
+	// CommandSetup provisions ssh identities for tunnels.
+	CommandSetup
 )
 
 // ErrHelp is returned by Parse when -h or --help is requested; the caller
@@ -53,6 +55,7 @@ Commands:
   tnl stop               stop the daemon
   tnl stop <name>        stop a single tunnel
   tnl restart <name>     restart a single tunnel
+  tnl setup [name]       provision ssh identity for tunnels
   tnl install            register tnl as a macOS launch agent
   tnl uninstall          remove the macOS launch agent
   tnl version            print the version
@@ -61,6 +64,11 @@ Options:
   -d, --detach           run as a background daemon
   -w, --watch            refresh status every second
   -c, --config <path>    config file (default ~/.tnlrc.yaml)
+      --algorithm <alg>  key algorithm: ed25519, ecdsa, or rsa
+      --filename <path>  private key path (overrides the recommendation)
+      --passphrase-file <path>
+                         read the key passphrase from a file (empty = none)
+  -y, --yes              accept defaults; push via agent only
   -h, --help             show this help
 `
 
@@ -72,6 +80,12 @@ type Options struct {
 	InternalDaemon bool
 	ConfigPath     string
 	Names          []string
+
+	// Setup options for CommandSetup.
+	SetupAlgorithm      string
+	SetupFilename       string
+	SetupPassphraseFile string
+	Yes                 bool
 }
 
 // Parse parses args (excluding the program name) into Options.
@@ -104,6 +118,32 @@ func Parse(args []string) (*Options, error) {
 				opts.ConfigPath = args[i]
 			case strings.HasPrefix(a, "--config="):
 				opts.ConfigPath = strings.TrimPrefix(a, "--config=")
+			case a == "--algorithm":
+				i++
+				if i >= len(args) {
+					return nil, fmt.Errorf("flag needs an argument: %s", a)
+				}
+				opts.SetupAlgorithm = args[i]
+			case strings.HasPrefix(a, "--algorithm="):
+				opts.SetupAlgorithm = strings.TrimPrefix(a, "--algorithm=")
+			case a == "--filename":
+				i++
+				if i >= len(args) {
+					return nil, fmt.Errorf("flag needs an argument: %s", a)
+				}
+				opts.SetupFilename = args[i]
+			case strings.HasPrefix(a, "--filename="):
+				opts.SetupFilename = strings.TrimPrefix(a, "--filename=")
+			case a == "--passphrase-file":
+				i++
+				if i >= len(args) {
+					return nil, fmt.Errorf("flag needs an argument: %s", a)
+				}
+				opts.SetupPassphraseFile = args[i]
+			case strings.HasPrefix(a, "--passphrase-file="):
+				opts.SetupPassphraseFile = strings.TrimPrefix(a, "--passphrase-file=")
+			case a == "-y" || a == "--yes":
+				opts.Yes = true
 			case a == "--internal-daemon":
 				opts.InternalDaemon = true
 			case a == "--":
@@ -123,6 +163,8 @@ func Parse(args []string) (*Options, error) {
 				verb, opts.Command = a, CommandStopDaemon
 			case "restart":
 				verb, opts.Command = a, CommandRestartTunnel
+			case "setup":
+				verb, opts.Command = a, CommandSetup
 			case "install":
 				verb, opts.Command = a, CommandInstall
 			case "uninstall":
@@ -168,6 +210,18 @@ func checkConflicts(opts *Options, verb string) error {
 	if opts.Detach && opts.Command != CommandStart {
 		return fmt.Errorf("%s command cannot be used with --detach", verb)
 	}
+	if opts.Command != CommandSetup {
+		switch {
+		case opts.SetupAlgorithm != "":
+			return fmt.Errorf("--algorithm can only be used with setup")
+		case opts.SetupFilename != "":
+			return fmt.Errorf("--filename can only be used with setup")
+		case opts.SetupPassphraseFile != "":
+			return fmt.Errorf("--passphrase-file can only be used with setup")
+		case opts.Yes:
+			return fmt.Errorf("--yes can only be used with setup")
+		}
+	}
 	switch opts.Command {
 	case CommandStatus, CommandInstall, CommandUninstall, CommandVersion:
 		if len(opts.Names) > 0 {
@@ -179,6 +233,10 @@ func checkConflicts(opts *Options, verb string) error {
 		}
 		if len(opts.Names) > 1 {
 			return fmt.Errorf("restart command accepts only one tunnel name")
+		}
+	case CommandSetup:
+		if len(opts.Names) > 1 {
+			return fmt.Errorf("setup command accepts only one tunnel name")
 		}
 	}
 	return nil

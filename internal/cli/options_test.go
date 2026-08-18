@@ -37,6 +37,15 @@ func TestParse(t *testing.T) {
 		{name: "internal daemon", args: []string{"--internal-daemon"}, want: &Options{Command: CommandStart, InternalDaemon: true}},
 		{name: "internal daemon reexec", args: []string{"--internal-daemon", "web", "-c", "/x"}, want: &Options{Command: CommandStart, InternalDaemon: true, Names: []string{"web"}, ConfigPath: "/x"}},
 		{name: "double dash", args: []string{"--", "status"}, want: &Options{Command: CommandStart, Names: []string{"status"}}},
+		{name: "setup", args: []string{"setup"}, want: &Options{Command: CommandSetup}},
+		{name: "setup names", args: []string{"setup", "web"}, want: &Options{Command: CommandSetup, Names: []string{"web"}}},
+		{name: "setup algorithm", args: []string{"setup", "--algorithm", "ecdsa"}, want: &Options{Command: CommandSetup, SetupAlgorithm: "ecdsa"}},
+		{name: "setup algorithm equals", args: []string{"setup", "--algorithm=rsa", "web"}, want: &Options{Command: CommandSetup, SetupAlgorithm: "rsa", Names: []string{"web"}}},
+		{name: "setup filename", args: []string{"setup", "--filename", "/tmp/k"}, want: &Options{Command: CommandSetup, SetupFilename: "/tmp/k"}},
+		{name: "setup passphrase file", args: []string{"setup", "--passphrase-file", "/tmp/p"}, want: &Options{Command: CommandSetup, SetupPassphraseFile: "/tmp/p"}},
+		{name: "setup yes short", args: []string{"setup", "-y"}, want: &Options{Command: CommandSetup, Yes: true}},
+		{name: "setup yes long", args: []string{"setup", "--yes"}, want: &Options{Command: CommandSetup, Yes: true}},
+		{name: "yes before setup", args: []string{"-y", "setup"}, want: &Options{Command: CommandSetup, Yes: true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -75,6 +84,13 @@ func TestParseErrors(t *testing.T) {
 		{name: "version with names", args: []string{"version", "web"}, want: "version command does not accept tunnel names"},
 		{name: "restart no name", args: []string{"restart"}, want: "restart requires a tunnel name"},
 		{name: "restart two names", args: []string{"restart", "web", "db"}, want: "restart command accepts only one tunnel name"},
+		{name: "setup with watch", args: []string{"setup", "--watch"}, want: "--watch can only be used with status"},
+		{name: "setup with detach", args: []string{"setup", "--detach"}, want: "setup command cannot be used with --detach"},
+		{name: "setup two names", args: []string{"setup", "web", "db"}, want: "setup command accepts only one tunnel name"},
+		{name: "algorithm without setup", args: []string{"--algorithm", "ed25519"}, want: "--algorithm can only be used with setup"},
+		{name: "status with yes", args: []string{"status", "--yes"}, want: "--yes can only be used with setup"},
+		{name: "restart with filename", args: []string{"restart", "--filename", "/tmp/k", "web"}, want: "--filename can only be used with setup"},
+		{name: "start with passphrase file", args: []string{"start", "--passphrase-file", "/tmp/p"}, want: "--passphrase-file can only be used with setup"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

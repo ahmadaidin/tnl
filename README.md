@@ -16,6 +16,7 @@ Inspired by [tunn](https://github.com/strandnerd/tunn): same architecture (confi
 - **Lifecycle control**: `start`/`stop`/`restart` individual tunnels without touching the daemon; `enabled: false` excludes a tunnel from "start everything"
 - **Daemon mode**: background daemon with Unix-socket IPC, pid/socket/log files, stale-state cleanup
 - **Login integration** (macOS): `tnl install` registers a LaunchAgent that starts the daemon at login
+- **Provisioning**: `tnl setup [name]` generates an ssh keypair for each tunnel's host, records it in `~/.ssh/config`, and installs the public key in the remote account's `authorized_keys` — one-time, never starts a tunnel
 
 ## Requirements
 
@@ -124,6 +125,7 @@ Commands:
   tnl stop               stop the daemon
   tnl stop <name>        stop a single tunnel
   tnl restart <name>     restart a single tunnel
+  tnl setup [name]       provision ssh identity for tunnels
   tnl install            register tnl as a macOS launch agent
   tnl uninstall          remove the macOS launch agent
   tnl version            print the version
@@ -131,6 +133,11 @@ Commands:
 Options:
   -d, --detach           run as a background daemon
   -c, --config <path>    config file (default ~/.tnlrc.yaml)
+      --algorithm <alg>  key algorithm: ed25519, ecdsa, or rsa
+      --filename <path>  private key path (overrides the recommendation)
+      --passphrase-file <path>
+                         read the key passphrase from a file (empty = none)
+  -y, --yes              accept defaults; push via agent only
   -h, --help             show this help
 ```
 
@@ -144,6 +151,9 @@ tnl status                # per-tunnel/per-mapping state
 tnl start pg_dev          # start a tunnel (auto-starts the daemon if needed)
 tnl stop db               # stop one tunnel; it will not restart
 tnl restart pg_dev        # stop, reset attempts, start fresh
+tnl setup                 # provision ssh identities for all tunnels
+tnl setup pg_dev          # provision only pg_dev (skips already-provisioned hosts)
+tnl setup -y              # non-interactive: defaults + agent-based push
 tnl stop                  # stop the daemon
 ```
 
@@ -170,6 +180,17 @@ The spawned ssh command is (with `local:desthost:remote` mappings, `localhost` i
 ```
 ssh -N -L <local>:localhost:<remote> -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o ExitOnForwardFailure=yes [-i <identity>] [-l <user>] <host>
 ```
+
+## Provisioning
+
+`tnl setup [name]` gives each tunnel's ssh host an Identity — one per (host, effective-user) pair — without ever starting a tunnel:
+
+1. **Detect**: a host is already Provisioned when an effective identity file exists (from `ssh -G <host>`); those hosts are skipped.
+2. **Keygen**: `ssh-keygen` creates the keypair — `ed25519` by default (`ecdsa -b 521`, `rsa -b 4096`); the recommended filename is `~/.ssh/id_<alg>_<host>` with `-2`/`-3` auto-suffix on collision. A dangling `identity_file` in the tunnel config generates the key at exactly that path. Default passphrase is empty; with a passphrase, the daemon needs ssh-agent to use the key at runtime.
+3. **Config**: the `Host <host>` / `IdentityFile <path>` block is inserted into `~/.ssh/config` before the first block that would match the host (first-match-wins safety).
+4. **Push**: `ssh -o StrictHostKeyChecking=accept-new` records `known_hosts`, then installs the public key into the remote account's `authorized_keys` — idempotent `grep -qFx` before append, `chmod 600`.
+
+Interactive prompts choose algorithm/filename/passphrase. `-y` accepts defaults and pushes via ssh-agent/ControlMaster only (no password prompt). `tnl setup` refuses to run while the daemon is running. Per-host failures don't stop the rest; the run exits non-zero if any host failed, and a failed host is rolled back (key + config block removed).
 
 ## Runtime files
 
@@ -206,6 +227,7 @@ Packages:
 | `internal/config` | parse/validate `~/.tnlrc.yaml` |
 | `internal/status` | thread-safe mapping-state store |
 | `internal/supervisor` | supervision loops, backoff, spawn, probes |
+| `internal/sshsetup` | one-time key generation + ~/.ssh/config + authorized_keys provisioning |
 | `internal/daemon` | unix-socket IPC, pid/socket/log lifecycle |
 | `internal/cli` | argument parsing |
 | `internal/output` | status rendering |
