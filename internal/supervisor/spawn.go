@@ -79,12 +79,3 @@ func (w *lastLines) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-// last returns the most recent complete line, or "" if none was written.
-func (w *lastLines) last() string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if len(w.ring) == 0 {
-		return ""
-	}
-	return w.ring[len(w.ring)-1]
-}

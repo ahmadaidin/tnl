@@ -379,7 +379,7 @@ func (m *Manager) runMapping(ctx context.Context, name string, mp config.Mapping
 			case <-procDone:
 				break loop
 			case <-ctx.Done():
-				m.killAndWait(cmd, procDone)
+				_ = m.killAndWait(cmd, procDone)
 				break loop
 			case <-ticker.C:
 				pctx, cancel := context.WithTimeout(ctx, m.opts.DialTimeout)
@@ -397,7 +397,7 @@ func (m *Manager) runMapping(ctx context.Context, name string, mp config.Mapping
 			select {
 			case <-procDone:
 			case <-ctx.Done():
-				m.killAndWait(cmd, procDone)
+				_ = m.killAndWait(cmd, procDone)
 			}
 		}
 

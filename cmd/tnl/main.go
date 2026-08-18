@@ -410,7 +410,7 @@ func launchDaemon(opts *cli.Options) error {
 	if err != nil {
 		return err
 	}
-	defer logf.Close()
+	defer func() { _ = logf.Close() }()
 
 	cmd := exec.Command(exe, args...)
 	cmd.Stdout = logf
@@ -421,8 +421,8 @@ func launchDaemon(opts *cli.Options) error {
 	pid := cmd.Process.Pid
 
 	killAndCleanup := func() {
-		cmd.Process.Kill()
-		cmd.Wait()
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
 		daemon.Cleanup(paths)
 	}
 	if err := daemon.WritePID(paths, pid); err != nil {
@@ -446,7 +446,7 @@ func launchDaemon(opts *cli.Options) error {
 		}
 		return errors.New("tnl daemon failed to start")
 	}
-	cmd.Process.Release()
+	_ = cmd.Process.Release()
 	fmt.Printf("tnl daemon started (pid %d)\n", pid)
 	return nil
 }
@@ -468,8 +468,8 @@ func runInternalDaemon(opts *cli.Options, cfgPath string) error {
 	if err != nil {
 		return err
 	}
-	defer logf.Close()
 	logger := log.New(logf, "", log.LstdFlags)
+	defer func() { _ = logf.Close() }()
 
 	m := supervisor.NewManager(cfg, supervisor.Options{
 		Selected: opts.Names,

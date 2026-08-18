@@ -55,7 +55,9 @@ func TestClientRespectsContextCancellation(t *testing.T) {
 
 func TestClientHonorsContextDeadlineAfterConnect(t *testing.T) {
 	paths := testPaths(t)
-	_ = os.Remove(paths.SocketFile)
+	if err := os.Remove(paths.SocketFile); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("remove stale socket: %v", err)
+	}
 	listener, err := net.Listen("unix", paths.SocketFile)
 	if err != nil {
 		t.Fatalf("listen unix: %v", err)
@@ -64,12 +66,12 @@ func TestClientHonorsContextDeadlineAfterConnect(t *testing.T) {
 	releaseHandler := make(chan struct{})
 	go func() {
 		defer close(handlerDone)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 		conn, acceptErr := listener.Accept()
 		if acceptErr != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		var req daemon.Request
 		_ = json.NewDecoder(conn).Decode(&req)
 		// Deliberately leave the response unread by the client.

@@ -110,7 +110,7 @@ func TestReclaimPortLsofKillsListener(t *testing.T) {
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start helper: %v", err)
 	}
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }()
 
 	probe := defaultProber(100 * time.Millisecond)
 	addr := "127.0.0.1:" + strconv.Itoa(port)
@@ -143,7 +143,7 @@ func TestHelperListener(t *testing.T) {
 	if err != nil {
 		os.Exit(2)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	// Block until terminated. A bare select{} would trip the runtime's
 	// deadlock detector and kill the process right after binding.
 	for {
@@ -158,6 +158,6 @@ func freePort(t *testing.T) int {
 	if err != nil {
 		t.Fatalf("free port: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().(*net.TCPAddr).Port
 }

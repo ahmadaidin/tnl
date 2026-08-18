@@ -24,7 +24,7 @@ func Render(snapshot []status.TunnelStatus, w io.Writer) {
 	for _, t := range snapshot {
 		tunnelState, summary := tunnelSummary(t.Mappings)
 		stateColor := colorFor(tunnelState)
-		fmt.Fprintf(w, "%s%s%s [%s%s%s]\n", stateColor, t.Name, colorReset, stateColor, summary, colorReset)
+		_, _ = fmt.Fprintf(w, "%s%s%s [%s%s%s]\n", stateColor, t.Name, colorReset, stateColor, summary, colorReset)
 
 		labelWidth, specWidth := 1, 0
 		parts := make([][2]string, len(t.Mappings))
@@ -44,7 +44,7 @@ func Render(snapshot []status.TunnelStatus, w io.Writer) {
 
 		for i, m := range t.Mappings {
 			label, spec := parts[i][0], parts[i][1]
-			fmt.Fprintf(w, "  %s%s%s%s %s%s%s%s [%s%s%s]%s%s\n",
+			_, _ = fmt.Fprintf(w, "  %s%s%s%s %s%s%s%s [%s%s%s]%s%s\n",
 				colorBlue, label, colorReset, spaces(labelWidth-len(label)),
 				colorCyan, spec, colorReset, spaces(specWidth-len(spec)),
 				colorFor(m.State), m.State, colorReset,

@@ -218,7 +218,7 @@ func (s *Server) closeListener() {
 
 // handle serves a single connection: one request in, one response out.
 func (s *Server) handle(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(connReadTimeout))
 
 	var req Request

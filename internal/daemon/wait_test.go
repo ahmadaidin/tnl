@@ -14,7 +14,7 @@ func TestWaitForSocketAlreadyPresent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	if err := daemon.WaitForSocket(paths, 2*time.Second); err != nil {
 		t.Errorf("WaitForSocket: %v", err)
@@ -30,7 +30,7 @@ func TestWaitForSocketAppears(t *testing.T) {
 		if err != nil {
 			return
 		}
-		defer ln.Close()
+		defer func() { _ = ln.Close() }()
 		<-stop
 	}()
 

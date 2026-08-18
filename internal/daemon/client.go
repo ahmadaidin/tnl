@@ -36,7 +36,7 @@ func roundTrip(ctx context.Context, paths Paths, req Request) (*Response, error)
 	if err != nil {
 		return nil, fmt.Errorf("connect to daemon socket %s: %w", paths.SocketFile, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	deadline := time.Now().Add(clientRoundTripTimeout)
 	if ctxDeadline, ok := ctx.Deadline(); ok && ctxDeadline.Before(deadline) {
