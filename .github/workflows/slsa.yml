@@ -60,7 +60,7 @@ jobs:
     needs: [test, release-metadata]
     permissions:
       id-token: write
-      contents: read
+      contents: write
       actions: read
     strategy:
       matrix:
