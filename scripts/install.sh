@@ -3,8 +3,8 @@
 # Install tnl from the latest GitHub release.
 #
 # Usage:
-#   ./install.sh                     # install into /usr/local/bin
-#   ./install.sh ~/.local/bin        # install into an explicit directory
+#   ./install.sh                     # install into ~/.local/bin
+#   ./install.sh /usr/local/bin      # install into an explicit directory
 #   TNL_VERSION=v0.1.0 ./install.sh  # pin a release version
 #
 # Downloads https://github.com/ahmadaidin/tnl/releases/latest/download/tnl-<os>-<arch>
@@ -21,8 +21,8 @@ set -euo pipefail
 # shellcheck disable=SC2155
 readonly REPO="ahmadaidin/tnl"
 
-# Resolve the destination directory (default: /usr/local/bin).
-readonly DEST="${1:-/usr/local/bin}"
+# Resolve the destination directory (default: ~/.local/bin).
+readonly DEST="${1:-${HOME}/.local/bin}"
 
 usage() {
   sed -n '2,13p' "$0"
@@ -38,14 +38,14 @@ esac
 if [[ ! -d "$DEST" ]]; then
   if ! mkdir -p "$DEST" 2>/dev/null; then
     echo "error: cannot create ${DEST} (permission denied)." >&2
-    echo "  Run with sudo, or pick a user-writable directory, e.g.:" >&2
-    echo "    bash <(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh) -s -- ~/.local/bin" >&2
+    echo "  Pick a user-writable directory, e.g.:" >&2
+    echo "    ./scripts/install.sh ~/.local/bin" >&2
     exit 1
   fi
 elif [[ ! -w "$DEST" ]]; then
   echo "error: ${DEST} is not writable (permission denied)." >&2
-  echo "  Run with sudo, or pick a user-writable directory, e.g.:" >&2
-  echo "    bash <(curl -fsSL https://raw.githubusercontent.com/${REPO}/main/scripts/install.sh) -s -- ~/.local/bin" >&2
+  echo "  Pick a user-writable directory, e.g.:" >&2
+  echo "    ./scripts/install.sh ~/.local/bin" >&2
   exit 1
 fi
 
@@ -111,4 +111,4 @@ mkdir -p "$DEST"
 install -m 0755 "${tmpdir}/${asset}" "$DEST/tnl"
 
 echo "Installed tnl to ${DEST}/tnl"
-echo "Run '${DEST}/tnl version' to confirm."
+echo "Run '${DEST}/tnl version' to confirm, or add ${DEST} to your PATH."

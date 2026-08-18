@@ -33,17 +33,21 @@ provenance. Install the latest release with:
 curl -fsSL https://raw.githubusercontent.com/ahmadaidin/tnl/main/scripts/install.sh | bash
 # pinned version:
 TNL_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/ahmadaidin/tnl/main/scripts/install.sh | bash
-# custom destination (no root needed):
-curl -fsSL https://raw.githubusercontent.com/ahmadaidin/tnl/main/scripts/install.sh | bash -s -- ~/.local/bin
+# custom destination:
+curl -fsSL https://raw.githubusercontent.com/ahmadaidin/tnl/main/scripts/install.sh | bash -s -- /usr/local/bin
 ```
 
-The script installs `tnl` into `/usr/local/bin`; pass a directory to change
-that, e.g. `bash scripts/install.sh ~/.local/bin` (or run
-`./scripts/install.sh` from a checkout). It detects the OS/arch, downloads
+The script installs `tnl` into `~/.local/bin` (created if missing); pass a
+directory to change that, e.g. `bash scripts/install.sh /usr/local/bin` (or
+run `./scripts/install.sh` from a checkout). It detects the OS/arch,
+downloads
 `https://github.com/ahmadaidin/tnl/releases/latest/download/tnl-<os>-<arch>`
-and verifies the binary with `tnl version`. On macOS and Linux, writing to
-`/usr/local/bin` usually requires root, so run the one-liner with `sudo` or
-pick a user-writable destination like `~/.local/bin`.
+and verifies the binary with `tnl version`. If `~/.local/bin` is not on your
+`PATH`, add it:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"   # add to ~/.zshrc or ~/.bashrc
+```
 
 For an installed binary, use the Go toolchain:
 
