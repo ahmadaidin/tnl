@@ -3,8 +3,8 @@
 # Install tnl from the latest GitHub release.
 #
 # Usage:
-#   ./install.sh                 # install into ./bin
-#   ./install.sh /usr/local/bin  # install into an explicit directory
+#   ./install.sh                     # install into /usr/local/bin
+#   ./install.sh ~/.local/bin        # install into an explicit directory
 #   TNL_VERSION=v0.1.0 ./install.sh  # pin a release version
 #
 # Downloads https://github.com/ahmadaidin/tnl/releases/latest/download/tnl-<os>-<arch>
@@ -21,8 +21,8 @@ set -euo pipefail
 # shellcheck disable=SC2155
 readonly REPO="ahmadaidin/tnl"
 
-# Resolve the destination directory (default: ./bin relative to CWD).
-readonly DEST="${1:-bin}"
+# Resolve the destination directory (default: /usr/local/bin).
+readonly DEST="${1:-/usr/local/bin}"
 
 usage() {
   sed -n '2,13p' "$0"
@@ -96,4 +96,4 @@ mkdir -p "$DEST"
 install -m 0755 "${tmpdir}/${asset}" "$DEST/tnl"
 
 echo "Installed tnl to ${DEST}/tnl"
-echo "Run '${DEST}/tnl version' to confirm, or add ${DEST} to your PATH."
+echo "Run '${DEST}/tnl version' to confirm."
