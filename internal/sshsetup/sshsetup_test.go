@@ -81,15 +81,23 @@ func TestProvisionSkipsProvisionedHost(t *testing.T) {
 		{
 			name: "explicit identity file exists",
 			set: func(home string) {
-				os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
-				os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519"), []byte("k"), 0o600)
+				if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519"), []byte("k"), 0o600); err != nil {
+					t.Fatal(err)
+				}
 			},
 		},
 		{
 			name: "default named key exists",
 			set: func(home string) {
-				os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
-				os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519"), []byte("k"), 0o600)
+				if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(home, ".ssh", "id_ed25519"), []byte("k"), 0o600); err != nil {
+					t.Fatal(err)
+				}
 			},
 		},
 	}
@@ -219,9 +227,15 @@ func TestProvisionDanglingIdentityFile(t *testing.T) {
 func TestProvisionFilenameAutoSuffix(t *testing.T) {
 	p, f := newProvisioner(t, nil)
 	rec := filepath.Join(p.HomeDir, ".ssh", "id_ed25519_myserver")
-	os.MkdirAll(filepath.Dir(rec), 0o700)
-	os.WriteFile(rec, []byte("x"), 0o600)
-	os.WriteFile(rec+"-2", []byte("x"), 0o600)
+	if err := os.MkdirAll(filepath.Dir(rec), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rec, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rec+"-2", []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	r := p.Provision(context.Background(), tunnel("myserver"), Options{Yes: true})
 	if r.Err != nil {
 		t.Fatalf("Provision error: %v", r.Err)
@@ -257,7 +271,9 @@ func TestProvisionPassphraseFile(t *testing.T) {
 	var warn bytes.Buffer
 	p.Err = &warn
 	pf := filepath.Join(p.HomeDir, "secret.txt")
-	os.WriteFile(pf, []byte("hunter2\n"), 0o600)
+	if err := os.WriteFile(pf, []byte("hunter2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	r := p.Provision(context.Background(), tunnel("myserver"), Options{PassphraseFile: pf, Yes: true})
 	if r.Err != nil {
 		t.Fatalf("Provision error: %v", r.Err)
@@ -274,9 +290,13 @@ func TestProvisionPassphraseFile(t *testing.T) {
 func TestProvisionRollback(t *testing.T) {
 	home := t.TempDir()
 	cfgPath := filepath.Join(home, ".ssh", "config")
-	os.MkdirAll(filepath.Dir(cfgPath), 0o700)
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	prior := "Host other\n    HostName elsewhere\n"
-	os.WriteFile(cfgPath, []byte(prior), 0o600)
+	if err := os.WriteFile(cfgPath, []byte(prior), 0o600); err != nil {
+		t.Fatal(err)
+	}
 
 	f := &fakeSSH{pushErr: errors.New("connection refused")}
 	p := &Provisioner{
@@ -334,10 +354,14 @@ func TestProvisionRollback(t *testing.T) {
 func TestInsertIdentityFile(t *testing.T) {
 	cfgPath := func(t *testing.T, home, content string) string {
 		t.Helper()
-		os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
+		if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+			t.Fatal(err)
+		}
 		path := filepath.Join(home, ".ssh", "config")
 		if content != "" {
-			os.WriteFile(path, []byte(content), 0o600)
+			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
 		}
 		return path
 	}
