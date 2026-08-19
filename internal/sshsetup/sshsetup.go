@@ -199,7 +199,9 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 		passphrase = ans
 	}
 	if passphrase != "" {
-		fmt.Fprintf(errw, "warning: passphrase-protected key; the daemon needs ssh-agent to use it\n")
+		if _, err := fmt.Fprintf(errw, "warning: passphrase-protected key; the daemon needs ssh-agent to use it\n"); err != nil {
+			return Result{Host: t.Host, User: user, Err: fmt.Errorf("write warning: %w", err)}
+		}
 	}
 
 	// Generate the keypair.
@@ -224,7 +226,11 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 		_ = os.Remove(keyPath + ".pub")
 		return Result{Host: t.Host, User: user, Err: fmt.Errorf("set pubkey permissions: %w", err)}
 	}
-	fmt.Fprintf(out, "generated key %s\n", keyPath)
+	if _, err := fmt.Fprintf(out, "generated key %s\n", keyPath); err != nil {
+		_ = os.Remove(keyPath)
+		_ = os.Remove(keyPath + ".pub")
+		return Result{Host: t.Host, User: user, Err: fmt.Errorf("write progress: %w", err)}
+	}
 
 	// Record the IdentityFile in ~/.ssh/config.
 	pub, err := os.ReadFile(keyPath + ".pub")
@@ -241,7 +247,16 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 		_ = os.Remove(keyPath + ".pub")
 		return Result{Host: t.Host, User: user, Err: fmt.Errorf("update ssh config: %w", err)}
 	}
-	fmt.Fprintf(out, "recorded IdentityFile for %s in %s\n", t.Host, configPath)
+	if _, err := fmt.Fprintf(out, "recorded IdentityFile for %s in %s\n", t.Host, configPath); err != nil {
+		_ = os.Remove(keyPath)
+		_ = os.Remove(keyPath + ".pub")
+		if prior == nil {
+			_ = os.Remove(configPath)
+		} else {
+			_ = os.WriteFile(configPath, prior, 0o600)
+		}
+		return Result{Host: t.Host, User: user, Err: fmt.Errorf("write progress: %w", err)}
+	}
 
 	// Install the public key into the remote account's authorized_keys.
 	// accept-new records the host fingerprint (never StrictHostKeyChecking=no);
