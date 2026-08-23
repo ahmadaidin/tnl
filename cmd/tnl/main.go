@@ -406,6 +406,7 @@ func runSetup(opts *cli.Options, cfgPath string) error {
 	}
 	failed := false
 	for _, name := range names {
+		fmt.Printf("provisioning %s...\n", name)
 		r := provisioner.Provision(context.Background(), cfg.Tunnels[name], setupOpts)
 		switch {
 		case r.Err != nil:

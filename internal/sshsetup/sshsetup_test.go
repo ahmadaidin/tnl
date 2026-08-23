@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -17,8 +18,9 @@ import (
 // fakeSSH is a scriptable Run: it records argv, writes dummy key material for
 // ssh-keygen invocations, and returns an injectable error for ssh pushes.
 type fakeSSH struct {
-	calls   [][]string
-	pushErr error
+	calls    [][]string
+	pushErr  error
+	pushMsg  string
 }
 
 func (f *fakeSSH) run(ctx context.Context, argv ...string) error {
@@ -49,6 +51,14 @@ func (f *fakeSSH) run(ctx context.Context, argv ...string) error {
 	return f.pushErr
 }
 
+func (f *fakeSSH) runPush(ctx context.Context, stderr io.Writer, argv ...string) error {
+	err := f.run(ctx, argv...)
+	if err != nil && f.pushMsg != "" {
+		_, _ = fmt.Fprint(stderr, f.pushMsg)
+	}
+	return err
+}
+
 // newProvisioner builds a Provisioner rooted at a temp home with a fake Run
 // that fails pushes when pushErr is non-nil. Prompt panics on unexpected use.
 func newProvisioner(t *testing.T, pushErr error) (*Provisioner, *fakeSSH) {
@@ -59,10 +69,12 @@ func newProvisioner(t *testing.T, pushErr error) (*Provisioner, *fakeSSH) {
 		SSHBin:    "ssh",
 		KeygenBin: "ssh-keygen",
 		HomeDir:   home,
-		EffectiveConfig: func(host string) ([]string, string, error) {
-			return []string{filepath.Join(home, ".ssh", "id_ed25519")}, "aidin", nil
+		EffectiveConfig: func(host string) ([]string, string, string, error) {
+			return []string{filepath.Join(home, ".ssh", "id_ed25519")}, "aidin", host, nil
 		},
+		ResolveHost: func(host string) error { return nil },
 		Run:    f.run,
+		RunPush: f.runPush,
 		Prompt: func(string) (string, error) { t.Fatal("unexpected prompt"); return "", nil },
 		Out:    io.Discard,
 		Err:    io.Discard,
@@ -298,15 +310,17 @@ func TestProvisionRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f := &fakeSSH{pushErr: errors.New("connection refused")}
+	f := &fakeSSH{pushErr: errors.New("connection refused"), pushMsg: "Permission denied, please try again.\n"}
 	p := &Provisioner{
 		SSHBin:    "ssh",
 		KeygenBin: "ssh-keygen",
 		HomeDir:   home,
-		EffectiveConfig: func(host string) ([]string, string, error) {
-			return []string{filepath.Join(home, ".ssh", "id_ed25519")}, "aidin", nil
+		EffectiveConfig: func(host string) ([]string, string, string, error) {
+			return []string{filepath.Join(home, ".ssh", "id_ed25519")}, "aidin", host, nil
 		},
+		ResolveHost: func(host string) error { return nil },
 		Run:    f.run,
+		RunPush: f.runPush,
 		Prompt: func(string) (string, error) { return "", nil },
 		Out:    io.Discard,
 		Err:    io.Discard,
@@ -314,6 +328,9 @@ func TestProvisionRollback(t *testing.T) {
 	r := p.Provision(context.Background(), tunnel("myserver"), Options{Yes: true})
 	if r.Err == nil {
 		t.Fatalf("Provision succeeded, want push failure")
+	}
+	if !strings.Contains(r.Err.Error(), "Permission denied") {
+		t.Errorf("error = %q, want Permission denied in output", r.Err)
 	}
 	key := filepath.Join(home, ".ssh", "id_ed25519_myserver")
 	if _, err := os.Stat(key); !errors.Is(err, os.ErrNotExist) {
@@ -333,10 +350,12 @@ func TestProvisionRollback(t *testing.T) {
 			SSHBin:    "ssh",
 			KeygenBin: "ssh-keygen",
 			HomeDir:   t.TempDir(),
-			EffectiveConfig: func(host string) ([]string, string, error) {
-				return []string{filepath.Join(p.HomeDir, ".ssh", "id_ed25519")}, "", nil
+			EffectiveConfig: func(host string) ([]string, string, string, error) {
+				return []string{filepath.Join(p.HomeDir, ".ssh", "id_ed25519")}, "", host, nil
 			},
+			ResolveHost: func(host string) error { return nil },
 			Run:    f.run,
+			RunPush: f.runPush,
 			Prompt: func(string) (string, error) { return "", nil },
 			Out:    io.Discard,
 			Err:    io.Discard,
@@ -479,14 +498,17 @@ func TestMatchPattern(t *testing.T) {
 }
 
 func TestParseGEffective(t *testing.T) {
-	out := "host myserver\nidentityfile /home/u/.ssh/id_ed25519\nuser aidin\nidentityfile /home/u/.ssh/id_rsa\nignoreme junk\n"
-	ids, user := parseGEffective(out)
+	out := "host myserver\nhostname db.suteki.co.id\nidentityfile /home/u/.ssh/id_ed25519\nuser aidin\nidentityfile /home/u/.ssh/id_rsa\nignoreme junk\n"
+	ids, user, hostname := parseGEffective(out)
 	want := []string{"/home/u/.ssh/id_ed25519", "/home/u/.ssh/id_rsa"}
 	if !reflect.DeepEqual(ids, want) {
 		t.Errorf("identities = %v, want %v", ids, want)
 	}
 	if user != "aidin" {
 		t.Errorf("user = %q, want aidin", user)
+	}
+	if hostname != "db.suteki.co.id" {
+		t.Errorf("hostname = %q, want db.suteki.co.id", hostname)
 	}
 }
 
@@ -505,10 +527,12 @@ func TestProvisionInteractivePrompts(t *testing.T) {
 		SSHBin:    "ssh",
 		KeygenBin: "ssh-keygen",
 		HomeDir:   home,
-		EffectiveConfig: func(host string) ([]string, string, error) {
-			return []string{filepath.Join(home, ".ssh", "id_ed25519")}, "aidin", nil
+		EffectiveConfig: func(host string) ([]string, string, string, error) {
+			return []string{filepath.Join(home, ".ssh", "id_ed25519")}, "aidin", host, nil
 		},
+		ResolveHost: func(host string) error { return nil },
 		Run: f.run,
+		RunPush: f.runPush,
 		Prompt: func(prompt string) (string, error) {
 			switch {
 			case strings.HasPrefix(prompt, "Key algorithm"):
@@ -533,5 +557,22 @@ func TestProvisionInteractivePrompts(t *testing.T) {
 		if !strings.Contains(keygen, want) {
 			t.Errorf("keygen argv = %q, want %s", keygen, want)
 		}
+	}
+}
+
+func TestProvisionUnresolvableHost(t *testing.T) {
+	p, f := newProvisioner(t, nil)
+	p.ResolveHost = func(host string) error {
+		return fmt.Errorf("lookup %s: no such host", host)
+	}
+	r := p.Provision(context.Background(), tunnel("nohost.example"), Options{Yes: true})
+	if r.Err == nil {
+		t.Fatal("Provision succeeded, want unresolvable host error")
+	}
+	if !strings.Contains(r.Err.Error(), "resolve host nohost.example") {
+		t.Errorf("error = %q, want resolve host message", r.Err)
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("Run called %d times for unresolvable host: %v", len(f.calls), f.calls)
 	}
 }
