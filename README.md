@@ -101,7 +101,7 @@ tunnels:
       - MySQL: 3306:mysql:3306   # forward through siakad.tech to mysql:3306
 ```
 
-`reclaim: true` (per tunnel, off by default) makes the supervisor terminate whatever process is listening on a colliding local port instead of waiting for it to free. It only kills processes owned by your user (uid guard), sends SIGTERM with a 2s grace before SIGKILL, and logs the action; unkillable or foreign processes fall back to `error - port in use`.
+`reclaim: true` (per tunnel, off by default) makes the supervisor terminate whatever process is listening on a colliding local port instead of waiting for it to free. It only kills processes owned by your user (uid guard), sends SIGINT with a 2s grace before SIGKILL, and logs the action; unkillable or foreign processes fall back to `error - port in use`.
 
 Validation (all at load time, strict — unknown fields are rejected):
 
@@ -162,9 +162,14 @@ Explicit tunnel names always win: `tnl start pg_dev` works even when the tunnel 
 Status output (from a live run):
 
 ```
-[api] web [connecting]
-[db] 32000:5432 [backing off] (attempt 3)
-[clash] 33000:80 [error] - port 33000 in use
+web [1 mapping, 1 active]
+  - 3000:3000 [active]
+db [3 mappings, 1 backing off, 2 active]
+  -     3303:3303       [active]
+  maria 5432:5432       [active]
+  redis 6380:redis:6379 [backing off] (attempt 8)
+broken [1 mapping, 1 error]
+  - 4000:4000 [error] - port 4000 in use
 ```
 
 ## How supervision works
