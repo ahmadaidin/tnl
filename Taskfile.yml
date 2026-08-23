@@ -51,11 +51,12 @@ tasks:
       - internal/**
 
   race:
-    desc: Run supervisor tests with the race detector
+    desc: Run supervisor and daemon tests with the race detector
     cmds:
-      - go test -race ./internal/supervisor/
+      - go test -race ./internal/supervisor/ ./internal/daemon/
     sources:
       - internal/supervisor/**
+      - internal/daemon/**
       - internal/status/**
       - internal/config/**
 
