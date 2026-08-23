@@ -9,10 +9,12 @@ package sshsetup
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,13 +35,24 @@ type Provisioner struct {
 	// HomeDir is the user's home directory; ~/.ssh paths resolve against it.
 	// Default os.UserHomeDir().
 	HomeDir string
-	// EffectiveConfig returns the identity files and user ssh would use for
-	// host. The production implementation runs `ssh -G <host>`.
-	EffectiveConfig func(host string) (identities []string, user string, err error)
+	// EffectiveConfig returns the identity files, the effective remote user,
+	// and the resolved hostname that ssh would use for host (the HostName
+	// from ~/.ssh/config, or host itself when no HostName is set). The
+	// production implementation runs `ssh -G <host>`.
+	EffectiveConfig func(host string) (identities []string, user string, hostname string, err error)
+	// ResolveHost checks that host resolves via DNS before provisioning
+	// begins. The production implementation uses net.LookupHost; tests
+	// inject a fake.
+	ResolveHost func(host string) error
 	// Run executes an external command with stdin/stdout/stderr wired to the
 	// real terminal (interactive password/passphrase prompts). The production
 	// implementation uses os/exec; tests inject a fake.
 	Run func(ctx context.Context, argv ...string) error
+	// RunPush executes an external command like Run but also captures stderr
+	// so the output can be included in error messages. The production
+	// implementation shows stderr on the terminal and captures it; tests
+	// inject a fake.
+	RunPush func(ctx context.Context, stderr io.Writer, argv ...string) error
 	// Prompt reads one line of interactive input. The production
 	// implementation reads os.Stdin; tests inject a scripted reader.
 	Prompt func(prompt string) (string, error)
@@ -98,6 +111,10 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 	if effCfg == nil {
 		effCfg = defaultEffectiveConfig(sshBin)
 	}
+	resolveHost := p.ResolveHost
+	if resolveHost == nil {
+		resolveHost = defaultResolveHost
+	}
 	run := p.Run
 	if run == nil {
 		run = defaultRun
@@ -116,7 +133,7 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 	}
 
 	// Detect: a host with an existing Identity is already Provisioned.
-	identities, effUser, err := effCfg(t.Host)
+	identities, effUser, effHostname, err := effCfg(t.Host)
 	if err != nil {
 		return Result{Host: t.Host, Err: err}
 	}
@@ -124,6 +141,15 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 	if user == "" {
 		user = effUser
 	}
+
+	// Validate: the resolved hostname must resolve via DNS before any key
+	// generation. This runs after ssh -G maps the host alias to its actual
+	// HostName, so an alias like "dbsuteki" backed by "db.suteki.co.id" in
+	// ~/.ssh/config checks the real hostname.
+	if err := resolveHost(effHostname); err != nil {
+		return Result{Host: t.Host, Err: fmt.Errorf("resolve host %s: %w", effHostname, err)}
+	}
+
 	for _, id := range identities {
 		if fileExists(expandPath(id, home)) {
 			return Result{Host: t.Host, User: user, Skipped: true}
@@ -271,7 +297,13 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 		pushArgs = append(pushArgs, "-l", user)
 	}
 	pushArgs = append(pushArgs, t.Host, remoteCmd)
-	if err := run(ctx, append([]string{sshBin}, pushArgs...)...); err != nil {
+	pushRun := runPushCapture(run)
+	if p.RunPush != nil {
+		pushRun = p.RunPush
+	}
+	var stderrBuf bytes.Buffer
+	stderrTee := io.MultiWriter(errw, &stderrBuf)
+	if err := pushRun(ctx, stderrTee, append([]string{sshBin}, pushArgs...)...); err != nil {
 		// All-or-nothing: a host is Provisioned only when identity AND push
 		// both succeed, so roll back the key and the config insertion.
 		_ = os.Remove(keyPath)
@@ -281,7 +313,11 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 		} else {
 			_ = os.WriteFile(configPath, prior, 0o600)
 		}
-		return Result{Host: t.Host, User: user, Err: fmt.Errorf("install authorized key on %s: %w", t.Host, err)}
+		stderr := strings.TrimSpace(stderrBuf.String())
+		if stderr != "" {
+			return Result{Host: t.Host, User: user, Err: fmt.Errorf("ssh key push to %s failed: %w\n%s", t.Host, err, stderr)}
+		}
+		return Result{Host: t.Host, User: user, Err: fmt.Errorf("ssh key push to %s failed: %w", t.Host, err)}
 	}
 
 	return Result{Host: t.Host, User: user, KeyPath: keyPath}
@@ -289,15 +325,27 @@ func (p *Provisioner) Provision(ctx context.Context, t *config.Tunnel, o Options
 
 // defaultEffectiveConfig resolves the effective identity files and user for
 // host via `ssh -G <host>`.
-func defaultEffectiveConfig(sshBin string) func(host string) ([]string, string, error) {
-	return func(host string) ([]string, string, error) {
+func defaultEffectiveConfig(sshBin string) func(host string) ([]string, string, string, error) {
+	return func(host string) ([]string, string, string, error) {
 		out, err := exec.Command(sshBin, "-G", host).Output()
 		if err != nil {
-			return nil, "", fmt.Errorf("resolve ssh config for %s: %w", host, err)
+			return nil, "", "", fmt.Errorf("resolve ssh config for %s: %w", host, err)
 		}
-		identities, user := parseGEffective(string(out))
-		return identities, user, nil
+		identities, user, hostname := parseGEffective(string(out))
+		if hostname == "" {
+			hostname = host
+		}
+		return identities, user, hostname, nil
 	}
+}
+
+// defaultResolveHost checks that host resolves via DNS using net.LookupHost.
+func defaultResolveHost(host string) error {
+	_, err := net.LookupHost(host)
+	if err != nil {
+		return fmt.Errorf("cannot resolve %q: %w", host, err)
+	}
+	return nil
 }
 
 // defaultRun executes a command with the process's stdio wired through, so
@@ -313,6 +361,21 @@ func defaultRun(ctx context.Context, argv ...string) error {
 	return cmd.Run()
 }
 
+// runPushCapture wraps a run function to capture stderr while still showing it
+// on the terminal. On failure, the captured stderr is included in the error.
+func runPushCapture(run func(ctx context.Context, argv ...string) error) func(ctx context.Context, stderr io.Writer, argv ...string) error {
+	return func(ctx context.Context, stderr io.Writer, argv ...string) error {
+		if len(argv) == 0 {
+			return nil
+		}
+		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = stderr
+		return cmd.Run()
+	}
+}
+
 // defaultPrompt prints prompt to stderr and reads one line from stdin.
 func defaultPrompt(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
@@ -326,7 +389,7 @@ func defaultPrompt(prompt string) (string, error) {
 // parseGEffective extracts identity files and the user from `ssh -G` output.
 // ssh -G always lists the default key names even when missing, so the caller
 // checks existence on disk.
-func parseGEffective(output string) (identities []string, user string) {
+func parseGEffective(output string) (identities []string, user string, hostname string) {
 	for _, line := range strings.Split(output, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 2 {
@@ -337,9 +400,11 @@ func parseGEffective(output string) (identities []string, user string) {
 			identities = append(identities, fields[1])
 		case "user":
 			user = fields[1]
+		case "hostname":
+			hostname = fields[1]
 		}
 	}
-	return identities, user
+	return identities, user, hostname
 }
 
 // insertIdentityFile inserts a Host/IdentityFile block for host into the ssh
