@@ -1,8 +1,8 @@
 //go:build darwin
 
-// Package launchd integrates tnl with macOS launchd by installing and
+// package service integrates tnl with macOS launchd by installing and
 // removing a per-user LaunchAgent that starts the daemon at login.
-package launchd
+package service
 
 import (
 	"bytes"

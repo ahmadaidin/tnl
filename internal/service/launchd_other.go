@@ -1,6 +1,6 @@
 //go:build !darwin
 
-package launchd
+package service
 
 import "errors"
 
