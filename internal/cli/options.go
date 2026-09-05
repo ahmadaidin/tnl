@@ -27,9 +27,9 @@ const (
 	CommandStartTunnel
 	// CommandRestartTunnel restarts a single tunnel through the daemon.
 	CommandRestartTunnel
-	// CommandInstall registers the launch agent.
+	// CommandInstall registers the user service (launchd/systemd).
 	CommandInstall
-	// CommandUninstall removes the launch agent.
+	// CommandUninstall removes the user service.
 	CommandUninstall
 	// CommandVersion prints the version.
 	CommandVersion
@@ -56,8 +56,8 @@ Commands:
   tnl stop <name>        stop a single tunnel
   tnl restart <name>     restart a single tunnel
   tnl setup [name]       provision ssh identity for tunnels
-  tnl install            register tnl as a macOS launch agent
-  tnl uninstall          remove the macOS launch agent
+  tnl install            register tnl as a user service (launchd/systemd)
+  tnl uninstall          remove the user service
   tnl version            print the version
 
 Options:
