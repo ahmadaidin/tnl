@@ -128,9 +128,8 @@ func (systemdManager) Uninstall() error {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("remove systemd unit: %w", err)
 	}
-	cmd := runCmd("systemctl", "--user", "daemon-reload")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("systemctl daemon-reload: %w: %s", err, strings.TrimSpace(string(out)))
-	}
+	// Best-effort: the unit is already removed; a later daemon-reload
+	// (from another service op or boot) will drop it from memory.
+	_ = runCmd("systemctl", "--user", "daemon-reload").Run()
 	return nil
 }
