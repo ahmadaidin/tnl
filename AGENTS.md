@@ -1,6 +1,6 @@
 # AGENTS.md — working in this repo
 
-tnl is a daemon-based SSH tunnel manager: YAML config → one system `ssh` process per port mapping, supervised by a daemon with Unix-socket IPC. It is a from-scratch reimplementation of tunn's architecture with two deltas: supervision (backoff restarts, collision detection, crash reporting) and lifecycle control (per-tunnel start/stop/restart, `enabled: false`, macOS login integration).
+tnl is a daemon-based SSH tunnel manager: YAML config → one system `ssh` process per port mapping, supervised by a daemon with Unix-socket IPC. It is a from-scratch reimplementation of tunn's architecture with two deltas: supervision (backoff restarts, collision detection, crash reporting) and lifecycle control (per-tunnel start/stop/restart, `enabled: false`, service integration).
 
 ## Read before changing behavior
 
@@ -16,7 +16,7 @@ tnl is a daemon-based SSH tunnel manager: YAML config → one system `ssh` proce
 - **Explicit names override `enabled: false`** — `tnl start pg_dev` and `tnl -d pg_dev` start a disabled tunnel; the flag only filters bare "all" operations.
 - **Graceful kill contract**: children get SIGINT, 2s grace, then SIGKILL. `Manager.Run` must not return until every child is dead, and `runInternalDaemon` in `cmd/tnl/main.go` must wait for BOTH the manager and the IPC server before exiting — exiting early orphans ssh processes (regression-tested by smoke, not unit tests).
 - **File hygiene**: runtime dir `0700`; pid/socket/log files `0600`. `daemon.Cleanup` removes pid + socket; socket removal happens there (after the supervisor has killed every child), not in the IPC server.
-- **Platform**: unix-only (macOS/Linux). LaunchAgent code lives behind `//go:build darwin` in `internal/launchd`; non-darwin returns an error, never a silent no-op.
+- **Platform**: unix-only (macOS/Linux). Service integration lives in `internal/service`: launchd behind `//go:build darwin`, systemd behind `//go:build linux`; platforms with neither return an error, never a silent no-op.
 
 ## Load-bearing interfaces (source of truth is the code, not this file)
 
