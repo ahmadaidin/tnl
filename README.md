@@ -212,7 +212,7 @@ All files are removed when the daemon exits cleanly. The daemon is also self-suf
 `tnl install` registers the daemon as a user service that starts at login:
 
 - **macOS**: writes `~/Library/LaunchAgents/com.ahmadaidin.tnl.plist` (pointing at the current binary, `RunAtLoad`) and loads it with `launchctl bootstrap`. `KeepAlive` is deliberately `false`: launchd never resurrects the daemon after `tnl stop`.
-- **Linux**: writes a systemd user unit to `~/.config/systemd/user/tnl.service` (or `$XDG_CONFIG_HOME/systemd/user/`), runs `systemctl --user daemon-reload` to scan the new unit, and `systemctl --user enable` to start it at login. `Restart=no` ensures systemd never resurrects the daemon after `tnl stop`.
+- **Linux**: writes a systemd user unit to `~/.config/systemd/user/tnl.service` (or `$XDG_CONFIG_HOME/systemd/user/`), runs `systemctl --user daemon-reload` to scan the new unit, `systemctl --user enable` to start it at login, and `systemctl --user start` to start it immediately. `Restart=no` ensures systemd never resurrects the daemon after `tnl stop`.
 
 `tnl uninstall` unloads and removes the service. On platforms without launchd or systemd these commands error with a clear message. The unit/plist bakes in the binary path — re-run `tnl install` after moving or rebuilding the binary elsewhere.
 

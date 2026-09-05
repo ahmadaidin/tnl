@@ -84,7 +84,7 @@ type systemdManager struct{}
 func New() Manager { return systemdManager{} }
 
 // Install writes the tnl systemd user unit, reloads systemd so the new unit
-// is scanned, and enables it so the daemon starts automatically.
+// is scanned, enables it for startup, and starts it immediately.
 func (systemdManager) Install(binPath string) error {
 	content, err := unitContents(binPath)
 	if err != nil {
