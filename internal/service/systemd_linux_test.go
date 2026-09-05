@@ -86,7 +86,7 @@ func assertUnitContent(t *testing.T, content, binPath string) {
 	}
 }
 
-func TestInstallWritesUnitReloadsAndEnables(t *testing.T) {
+func TestInstallWritesUnitReloadsEnablesAndStarts(t *testing.T) {
 	dir := t.TempDir()
 	swapUnitDir(t, dir)
 	var calls [][]string
@@ -106,14 +106,18 @@ func TestInstallWritesUnitReloadsAndEnables(t *testing.T) {
 
 	wantReload := []string{"systemctl", "--user", "daemon-reload"}
 	wantEnable := []string{"systemctl", "--user", "enable", serviceName}
-	if len(calls) != 2 {
-		t.Fatalf("systemctl invoked %d times, want 2: %v", len(calls), calls)
+	wantStart := []string{"systemctl", "--user", "start", serviceName}
+	if len(calls) != 3 {
+		t.Fatalf("systemctl invoked %d times, want 3: %v", len(calls), calls)
 	}
 	if !equalArgs(calls[0], wantReload) {
 		t.Errorf("daemon-reload invocation = %q, want %q", calls[0], wantReload)
 	}
 	if !equalArgs(calls[1], wantEnable) {
 		t.Errorf("enable invocation = %q, want %q", calls[1], wantEnable)
+	}
+	if !equalArgs(calls[2], wantStart) {
+		t.Errorf("start invocation = %q, want %q", calls[2], wantStart)
 	}
 }
 

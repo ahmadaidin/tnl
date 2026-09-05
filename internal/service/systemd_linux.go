@@ -108,6 +108,10 @@ func (systemdManager) Install(binPath string) error {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("systemctl enable: %w: %s", err, strings.TrimSpace(string(out)))
 	}
+	cmd = runCmd("systemctl", "--user", "start", serviceName)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("systemctl start: %w: %s", err, strings.TrimSpace(string(out)))
+	}
 	return nil
 }
 
