@@ -90,7 +90,7 @@ func TestInstallWritesPlistAndBootstraps(t *testing.T) {
 	swapRunner(t, &calls, false)
 
 	const binPath = "/usr/local/bin/tnl"
-	if err := Install(binPath); err != nil {
+	if err := New().Install(binPath); err != nil {
 		t.Fatalf("Install returned error: %v", err)
 	}
 
@@ -120,7 +120,7 @@ func TestInstallPropagatesBootstrapFailure(t *testing.T) {
 	var calls [][]string
 	swapRunner(t, &calls, true)
 
-	err := Install("/usr/local/bin/tnl")
+	err := New().Install("/usr/local/bin/tnl")
 	if err == nil {
 		t.Fatal("Install succeeded despite failed launchctl bootstrap, want error")
 	}
@@ -139,7 +139,7 @@ func TestUninstallBootsOutAndRemovesPlist(t *testing.T) {
 	var calls [][]string
 	swapRunner(t, &calls, false)
 
-	if err := Uninstall(); err != nil {
+	if err := New().Uninstall(); err != nil {
 		t.Fatalf("Uninstall returned error: %v", err)
 	}
 
@@ -165,7 +165,7 @@ func TestUninstallIgnoresBootoutFailure(t *testing.T) {
 	var calls [][]string
 	swapRunner(t, &calls, true)
 
-	if err := Uninstall(); err != nil {
+	if err := New().Uninstall(); err != nil {
 		t.Fatalf("Uninstall returned error despite failed bootout: %v", err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {

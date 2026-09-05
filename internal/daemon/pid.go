@@ -67,7 +67,7 @@ func Cleanup(paths Paths) {
 // reports not running. A missing pid file likewise reports not running. A
 // corrupt pid file is surfaced as an error rather than guessed at.
 func CheckRunning(paths Paths) (pid int, running bool, err error) {
-	return checkRunning(paths, func(pid int) error { return syscall.Kill(pid, 0) })
+	return checkRunning(paths, probePID)
 }
 
 func checkRunning(paths Paths, probe func(int) error) (pid int, running bool, err error) {

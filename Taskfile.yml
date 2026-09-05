@@ -10,6 +10,8 @@ version: "3"
 vars:
   BIN_DIR: bin
   BIN: "{{.BIN_DIR}}/tnl"
+  OS_VAR: ['linux', 'darwin']
+  ARCH_VAR: ['amd64', 'arm64']
   VERSION: dev
   PKG_VERSION: github.com/ahmadaidin/tnl/internal/version
 
@@ -36,6 +38,27 @@ tasks:
       - internal/**
     generates:
       - "{{.BIN}}"
+
+  build:all:
+    desc: "Compile the tnl binary into ./bin for all platforms"
+    deps:
+      - build
+    cmds:
+      - for:
+          matrix:
+            OS:
+              ref: .OS_VAR
+            ARCH:
+              ref: .ARCH_VAR
+        cmd: GOOS={{.ITEM.OS}} GOARCH={{.ITEM.ARCH}} go build -ldflags "-X {{.PKG_VERSION}}.Version={{.VERSION}}" -o {{.BIN}}-{{.ITEM.OS}}-{{.ITEM.ARCH}} ./cmd/tnl
+    sources:
+      - cmd/**
+      - internal/**
+    generates:
+      - "{{.BIN}}-linux-amd64"
+      - "{{.BIN}}-linux-arm64"
+      - "{{.BIN}}-darwin-amd64"
+      - "{{.BIN}}-darwin-arm64"
 
   install:
     desc: Install tnl into GOPATH/bin

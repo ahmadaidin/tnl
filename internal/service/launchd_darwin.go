@@ -9,9 +9,15 @@ import (
 	"strings"
 )
 
+// launchdManager installs and removes the tnl LaunchAgent.
+type launchdManager struct{}
+
+// New returns a Manager backed by launchd, the macOS service manager.
+func New() Manager { return launchdManager{} }
+
 // Install writes the LaunchAgent plist for the tnl daemon and registers it
 // with launchctl so the daemon starts at login.
-func Install(binPath string) error {
+func (launchdManager) Install(binPath string) error {
 	content, err := plistContents(binPath)
 	if err != nil {
 		return err
@@ -40,7 +46,7 @@ func Install(binPath string) error {
 // Uninstall removes the tnl LaunchAgent: it unloads the service with
 // launchctl (ignoring failures, e.g. when it is not loaded) and deletes the
 // plist file.
-func Uninstall() error {
+func (launchdManager) Uninstall() error {
 	_ = runCmd("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", os.Getuid(), label)).Run()
 	path, err := plistPath()
 	if err != nil {

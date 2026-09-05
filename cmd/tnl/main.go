@@ -25,7 +25,7 @@ import (
 	"github.com/ahmadaidin/tnl/internal/config"
 	"github.com/ahmadaidin/tnl/internal/daemon"
 	"github.com/ahmadaidin/tnl/internal/output"
-	launchd "github.com/ahmadaidin/tnl/internal/service"
+	"github.com/ahmadaidin/tnl/internal/service"
 	"github.com/ahmadaidin/tnl/internal/sshsetup"
 	"github.com/ahmadaidin/tnl/internal/supervisor"
 	"github.com/ahmadaidin/tnl/internal/version"
@@ -84,9 +84,9 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		return launchd.Install(exe)
+		return service.New().Install(exe)
 	case cli.CommandUninstall:
-		return launchd.Uninstall()
+		return service.New().Uninstall()
 	case cli.CommandVersion:
 		fmt.Println(version.String())
 		return nil

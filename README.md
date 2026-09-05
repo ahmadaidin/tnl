@@ -15,7 +15,7 @@ Inspired by [tunn](https://github.com/strandnerd/tunn): same architecture (confi
 - **Port-collision detection**: occupied local ports are reported per-mapping and retried with backoff; two tunnels claiming the same port is rejected at config load
 - **Lifecycle control**: `start`/`stop`/`restart` individual tunnels without touching the daemon; `enabled: false` excludes a tunnel from "start everything"
 - **Daemon mode**: background daemon with Unix-socket IPC, pid/socket/log files, stale-state cleanup
-- **Login integration** (macOS): `tnl install` registers a LaunchAgent that starts the daemon at login
+- **Service integration** (macOS/Linux): `tnl install` registers the daemon as a launchd LaunchAgent (macOS) or systemd user unit (Linux) that starts at login
 - **Provisioning**: `tnl setup [name]` generates an ssh keypair for each tunnel's host, records it in `~/.ssh/config`, and installs the public key in the remote account's `authorized_keys` — one-time, never starts a tunnel
 
 ## Requirements
@@ -126,8 +126,8 @@ Commands:
   tnl stop <name>        stop a single tunnel
   tnl restart <name>     restart a single tunnel
   tnl setup [name]       provision ssh identity for tunnels
-  tnl install            register tnl as a macOS launch agent
-  tnl uninstall          remove the macOS launch agent
+  tnl install            register tnl as a user service (launchd/systemd)
+  tnl uninstall          remove the user service
   tnl version            print the version
 
 Options:
@@ -207,9 +207,14 @@ The daemon keeps its state in `$XDG_RUNTIME_DIR/tnl` (fallback `~/.cache/tnl`), 
 
 All files are removed when the daemon exits cleanly. The daemon is also self-sufficient against lost runtime files: if `daemon.pid` or `daemon.sock` are removed from underneath it (e.g. by external cleanup), it re-creates them within ~5s, so it never becomes invisible to `tnl status`/`tnl stop` and a duplicate daemon can never be launched.
 
-## Login integration (macOS)
+## Service integration (macOS/Linux)
 
-`tnl install` writes `~/Library/LaunchAgents/com.ahmadaidin.tnl.plist` (pointing at the current binary, `RunAtLoad`) and loads it. `KeepAlive` is deliberately `false`: launchd never resurrects the daemon after `tnl stop`. `tnl uninstall` unloads and removes it. On non-macOS these commands error with a clear message. The plist bakes in the binary path — re-run `tnl install` after moving or rebuilding the binary elsewhere.
+`tnl install` registers the daemon as a user service that starts at login:
+
+- **macOS**: writes `~/Library/LaunchAgents/com.ahmadaidin.tnl.plist` (pointing at the current binary, `RunAtLoad`) and loads it with `launchctl bootstrap`. `KeepAlive` is deliberately `false`: launchd never resurrects the daemon after `tnl stop`.
+- **Linux**: writes a systemd user unit to `~/.config/systemd/user/tnl.service` (or `$XDG_CONFIG_HOME/systemd/user/`), runs `systemctl --user daemon-reload` to scan the new unit, and `systemctl --user enable` to start it at login. `Restart=no` ensures systemd never resurrects the daemon after `tnl stop`.
+
+`tnl uninstall` unloads and removes the service. On platforms without launchd or systemd these commands error with a clear message. The unit/plist bakes in the binary path — re-run `tnl install` after moving or rebuilding the binary elsewhere.
 
 ## Architecture
 
@@ -228,7 +233,7 @@ flowchart LR
 Packages:
 
 | Package | Role |
-|---|---|
+| --- | --- |
 | `internal/config` | parse/validate `~/.tnlrc.yaml` |
 | `internal/status` | thread-safe mapping-state store |
 | `internal/supervisor` | supervision loops, backoff, spawn, probes |
@@ -236,7 +241,7 @@ Packages:
 | `internal/daemon` | unix-socket IPC, pid/socket/log lifecycle |
 | `internal/cli` | argument parsing |
 | `internal/output` | status rendering |
-| `internal/launchd` | macOS LaunchAgent (darwin-only) |
+| `internal/service` | service integration: launchd (darwin), systemd (linux), unsupported |
 | `cmd/tnl` | entrypoint and command dispatch |
 
 ## Design notes
